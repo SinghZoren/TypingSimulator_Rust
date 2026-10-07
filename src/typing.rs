@@ -16,11 +16,15 @@ pub struct TypingSettings {
     pub delay_seconds: f32,
     pub typo_chance: f32,
     pub timing_variation: f32,
+    pub thinking_chance: f32,
+    pub thinking_pause_seconds: f32,
 }
 
 pub enum TypingEvent {
     Countdown(u32),
     Typing,
+    Thinking,
+    Progress(usize),
     Finished,
     Stopped,
     Error(String),
@@ -63,7 +67,8 @@ pub fn spawn(
         let _ = events.send(TypingEvent::Typing);
         let mut rng = rand::rng();
 
-        for character in text.replace("\r\n", "\n").chars() {
+        let characters: Vec<char> = text.replace("\r\n", "\n").chars().collect();
+        for (index, character) in characters.iter().copied().enumerate() {
             if !active.load(Ordering::SeqCst) {
                 let _ = events.send(TypingEvent::Stopped);
                 return;
@@ -107,10 +112,52 @@ pub fn spawn(
                 let _ = events.send(TypingEvent::Stopped);
                 return;
             }
+            let _ = events.send(TypingEvent::Progress(index + 1));
+            if index + 1 < characters.len()
+                && is_word_boundary(&characters, index)
+                && rng.random::<f32>() < settings.thinking_chance
+            {
+                let _ = events.send(TypingEvent::Thinking);
+                if !wait(
+                    Duration::from_secs_f32(settings.thinking_pause_seconds),
+                    &active,
+                ) {
+                    let _ = events.send(TypingEvent::Stopped);
+                    return;
+                }
+                let _ = events.send(TypingEvent::Typing);
+            }
         }
         active.store(false, Ordering::SeqCst);
         let _ = events.send(TypingEvent::Finished);
     });
+}
+
+fn is_word_boundary(characters: &[char], index: usize) -> bool {
+    !characters[index].is_whitespace()
+        && characters
+            .get(index + 1)
+            .is_none_or(|next| next.is_whitespace())
+}
+
+pub fn estimate_seconds(text: &str, settings: TypingSettings, completed_chars: usize) -> f32 {
+    let characters: Vec<char> = text.replace("\r\n", "\n").chars().collect();
+    let start = completed_chars.min(characters.len());
+    let remaining = &characters[start..];
+    let base = 60.0 / (settings.wpm.max(1) as f32 * 5.0);
+    let typing = remaining.len() as f32 * base;
+    let typos = remaining
+        .iter()
+        .filter(|character| character.is_ascii_alphabetic())
+        .count() as f32
+        * settings.typo_chance
+        * 0.16;
+    let pauses = (start..characters.len().saturating_sub(1))
+        .filter(|&index| is_word_boundary(&characters, index))
+        .count() as f32
+        * settings.thinking_chance
+        * settings.thinking_pause_seconds;
+    typing + typos + pauses
 }
 
 fn wait(duration: Duration, active: &AtomicBool) -> bool {
@@ -129,4 +176,32 @@ fn fail(active: &AtomicBool, events: &Sender<TypingEvent>, error: String) {
     let _ = events.send(TypingEvent::Error(format!(
         "Keyboard input failed. Check accessibility permissions: {error}"
     )));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn thinking_pauses_only_follow_complete_words() {
+        let chars: Vec<_> = "hello world!".chars().collect();
+        let boundaries: Vec<_> = (0..chars.len())
+            .filter(|&index| is_word_boundary(&chars, index))
+            .collect();
+        assert_eq!(boundaries, vec![4, 11]);
+    }
+
+    #[test]
+    fn estimate_includes_expected_word_pause() {
+        let settings = TypingSettings {
+            wpm: 60,
+            delay_seconds: 0.0,
+            typo_chance: 0.0,
+            timing_variation: 0.0,
+            thinking_chance: 1.0,
+            thinking_pause_seconds: 2.0,
+        };
+        // Eleven characters at 200 ms each, plus one pause between the words.
+        assert!((estimate_seconds("hello world", settings, 0) - 4.2).abs() < 0.001);
+    }
 }
