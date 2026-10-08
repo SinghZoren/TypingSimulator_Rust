@@ -7,7 +7,7 @@ A native Rust desktop app that types pasted text into another application at a h
 Download the latest file from [GitHub Releases](https://github.com/SinghZoren/TypingSimulator_Rust/releases):
 
 - Windows x64: `TypingSimulator-windows-x64.zip` — extract and run `TypingSimulator.exe`.
-- macOS (Intel or Apple Silicon): `TypingSimulator-macos-universal.zip` — extract and open `Typing Simulator.app`.
+- macOS (Intel or Apple Silicon): `TypingSimulator-macos-universal.zip` — extract, move `Typing Simulator.app` to `/Applications`, then open that copy.
 
 The setup guide opens as a modal on first launch. Use its Windows/macOS toggle for the instructions that match your computer; reopen it any time with **Setup guide** in the top bar. The main page scrolls when the window is small.
 
@@ -15,9 +15,9 @@ Paste or enter text, adjust the settings if desired, then press **Start typing**
 
 The editor shows an approximate completion time before a run and approximate remaining time while typing. It includes the countdown, expected typo corrections, and expected thinking pauses; random choices mean the actual duration will vary.
 
-To remap the shortcut, choose a function key or letter in the **Global shortcut** card, select any modifiers, and click **Apply shortcut**. Letter shortcuts require Ctrl, Alt, or Win/Cmd. The app keeps the previous shortcut if the new one cannot be registered. Speed, realism, onboarding status, and shortcut preferences are saved between launches; pasted text is not saved.
+To remap the shortcut, click **Change shortcut**, press a function key or a modifier-plus-letter combination, then click **Save shortcut**. Letter shortcuts require Ctrl, Alt, or Cmd. The app keeps the previous shortcut if the new one cannot be registered. Speed, realism, onboarding status, and shortcut preferences are saved between launches; pasted text is not saved.
 
-macOS requires **System Settings → Privacy & Security → Accessibility** permission for Typing Simulator. The download is currently unsigned, so on first launch you may need to right-click the app and choose **Open**. Windows may show a SmartScreen warning for the unsigned executable. Typing into a Windows app running as administrator requires starting Typing Simulator as administrator too.
+macOS requires **System Settings → Privacy & Security → Accessibility** permission for Typing Simulator. Grant it to the copy in `/Applications`, not a copy launched directly from Downloads or an extracted ZIP. If macOS keeps prompting, fully quit the app, remove old Typing Simulator entries from the Accessibility list, add `/Applications/Typing Simulator.app` with the **+** button, enable it, then reopen that same copy. The macOS app is ad-hoc signed but not Developer ID signed or notarized, so on first launch you may need to right-click the app and choose **Open**. A new build may need a fresh Accessibility grant; stable permissions across releases require Developer ID signing. If running from source with `cargo run`, the permission may instead be needed for the terminal app that launched it. Windows may show a SmartScreen warning for the unsigned executable. Typing into a Windows app running as administrator requires starting Typing Simulator as administrator too.
 
 ## Build from source
 

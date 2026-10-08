@@ -65,7 +65,13 @@ jobs:
           iconutil -c icns -o "Typing Simulator.app/Contents/Resources/AppIcon.icns" icon.iconset
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             plutil -replace CFBundleShortVersionString -string "${GITHUB_REF_NAME#v}" "Typing Simulator.app/Contents/Info.plist"
+            plutil -replace CFBundleVersion -string "${GITHUB_REF_NAME#v}" "Typing Simulator.app/Contents/Info.plist"
           fi
+          # Sign the completed universal bundle, after all files and metadata are in place.
+          # An ad-hoc signature gives this build an explicit code identity, but a
+          # Developer ID signature is needed for stable identity across releases.
+          codesign --force --sign - --identifier com.singhzoren.typingsimulator "Typing Simulator.app"
+          codesign --verify --deep --strict --verbose=2 "Typing Simulator.app"
           ditto -c -k --sequesterRsrc --keepParent "Typing Simulator.app" TypingSimulator-macos-universal.zip
       - uses: actions/upload-artifact@v4
         with:

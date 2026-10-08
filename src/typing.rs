@@ -1,3 +1,5 @@
+#[cfg(target_os = "macos")]
+use enigo::NewConError;
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use rand::Rng;
 use std::{
@@ -57,8 +59,19 @@ pub fn spawn(
             return;
         }
 
-        let mut enigo = match Enigo::new(&Settings::default()) {
+        // The system dialog cannot repair an identity mismatch and otherwise
+        // repeats on every Start. Our UI reports the denied check instead.
+        let enigo_settings = Settings {
+            open_prompt_to_get_permissions: !cfg!(target_os = "macos"),
+            ..Settings::default()
+        };
+        let mut enigo = match Enigo::new(&enigo_settings) {
             Ok(enigo) => enigo,
+            #[cfg(target_os = "macos")]
+            Err(NewConError::NoPermission) => {
+                fail(&active, &events, "macOS still reports this process as untrusted, even if Typing Simulator is enabled in Accessibility. This may be an app identity/signing problem; the app will not ask again in a loop.".into());
+                return;
+            }
             Err(error) => {
                 fail(&active, &events, error.to_string());
                 return;
@@ -174,7 +187,7 @@ fn wait(duration: Duration, active: &AtomicBool) -> bool {
 fn fail(active: &AtomicBool, events: &Sender<TypingEvent>, error: String) {
     active.store(false, Ordering::SeqCst);
     let _ = events.send(TypingEvent::Error(format!(
-        "Keyboard input failed. Check accessibility permissions: {error}"
+        "Keyboard input failed: {error}"
     )));
 }
 
